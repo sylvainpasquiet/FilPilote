@@ -36,8 +36,8 @@
 //#define MY_RADIO_RFM69
 
 // Enable repeater functionality for this node
-#define MY_REPEATER_FEATURE
-#define MY_DISABLED_SERIAL
+//#define MY_REPEATER_FEATURE
+//#define MY_DISABLED_SERIAL
 
 #define MY_DEFAULT_LED_BLINK_PERIOD 100
 // Flash leds on rx/tx/err
@@ -49,7 +49,7 @@
 #define MY_NODE_ID 10
 
 #define MY_RF24_CHANNEL  125
-#define MY_RF24_PA_LEVEL RF24_PA_HIGH
+#define MY_RF24_PA_LEVEL RF24_PA_LOW
 
 #include <MySensors.h>
 #include <SPI.h>
@@ -204,15 +204,17 @@ void setup()
 void presentation()
 {
   // Send the sketch version information to the gateway and Controller
-  sendSketchInfo("Carte Fil Pilote", "2.00");
+  sendSketchInfo("Carte Fil Pilote", "2.20");
   
-  present(CHILD_ID_RELAIS           , S_CUSTOM);  
-  present(CHILD_ID_REBOOT           , S_CUSTOM);
-  present(CHILD_ID_ERREUR_MYSENSORS , S_CUSTOM);
-  
-  request(CHILD_ID_RELAIS           , V_VAR5);
-  request(CHILD_ID_REBOOT           , V_VAR1);
-  request(CHILD_ID_ERREUR_MYSENSORS , V_VAR1);
+  present(CHILD_ID_RELAIS           , S_INFO);  
+  present(CHILD_ID_REBOOT           , S_INFO);
+  present(CHILD_ID_ERREUR_MYSENSORS , S_INFO);
+  present(CHILD_ID_CMD_RESET_STATS  , S_INFO);
+  present(CHILD_ID_CMD_MAJ          , S_INFO);
+    
+  request(CHILD_ID_RELAIS           , V_TEXT);
+  request(CHILD_ID_REBOOT           , V_TEXT);
+  request(CHILD_ID_ERREUR_MYSENSORS , V_TEXT);
 }
 
 void SaveData(unsigned char Offset,unsigned short int Value)
@@ -233,6 +235,7 @@ void loop()
   
   switch(gEtape)
   {
+    Serial.println(gEtape);
     case 0:
       gActualCompteurReboot++;
       SaveData(0,gActualCompteurReboot);   
@@ -259,6 +262,7 @@ void loop()
       AffichageEcran(&gAfficheur,gMessageChr,&gRelais);
       l_MAJHeure=true;
       gEtape=21;
+      wait(500);
       break;  
     case 21: 
       if (gDateSignal) {l_MAJHeure=false;gDateSignal=false;gEtape=30;}    
@@ -267,14 +271,14 @@ void loop()
       sprintf(gMessageChr,"\nMise a\njour\nrelais");
       AffichageEcran(&gAfficheur,gMessageChr,&gRelais);
       l_Statut=true;
-      request(CHILD_ID_RELAIS           , V_VAR5);
+      request(CHILD_ID_RELAIS           , V_TEXT);
       if (gRelaiSignal) {gRelaiSignal=false;gEtape=40;}
       else {gEtape=31;}
       break;      
      case 31:
       AffichageEcran(&gAfficheur,gMessageChr,&gRelais);
       l_Statut=true;
-      request(CHILD_ID_RELAIS           , V_VAR5);
+      request(CHILD_ID_RELAIS           , V_TEXT);
       if (gRelaiSignal) {gRelaiSignal=false;gEtape=40;}
       else {gEtape=31;}
       break;         
@@ -312,8 +316,8 @@ void loop()
   } 
   
   MajHeure(l_MAJHeure,&l_Statut);
-  Update(&gMsg,CHILD_ID_REBOOT            ,V_VAR1 ,gActualCompteurReboot  ,&gOldCompteurReboot ,&gActualErreur ,&l_Statut);   
-  Update(&gMsg,CHILD_ID_ERREUR_MYSENSORS  ,V_VAR1 ,gActualErreur          ,&gOldErreur         ,&gActualErreur ,&l_Statut);   
+  Update(&gMsg,CHILD_ID_REBOOT            ,V_TEXT ,gActualCompteurReboot  ,&gOldCompteurReboot ,&gActualErreur ,&l_Statut);   
+  Update(&gMsg,CHILD_ID_ERREUR_MYSENSORS  ,V_TEXT ,gActualErreur          ,&gOldErreur         ,&gActualErreur ,&l_Statut);   
 
   if (millis()-gOldTime>=1000)
   {
@@ -330,7 +334,7 @@ void receive(const MyMessage &l_message)
   char l_EtatRelaisStr[40];
   //Serial.println(l_message.sensor);
   //Serial.println(l_message.type);
-  if ((l_message.type==V_VAR5)&&(l_message.sensor==CHILD_ID_RELAIS))
+  if ((l_message.type==V_TEXT)&&(l_message.sensor==CHILD_ID_RELAIS))
   {
     memset(l_EtatRelaisStr,0,sizeof(l_EtatRelaisStr));
     l_message.getString(l_EtatRelaisStr);
@@ -351,11 +355,11 @@ void receive(const MyMessage &l_message)
     }
     gRelais.Refresh();                                                                          
   }  
-  if ((l_message.type==V_CUSTOM)&&(l_message.sensor==CHILD_ID_CMD_RESET_STATS))
+  if ((l_message.type==V_TEXT)&&(l_message.sensor==CHILD_ID_CMD_RESET_STATS))
   {
     gResetSignal=true;
   }     
-  if ((l_message.type==V_CUSTOM)&&(l_message.sensor==CHILD_ID_CMD_MAJ))
+  if ((l_message.type==V_TEXT)&&(l_message.sensor==CHILD_ID_CMD_MAJ))
   {
     gMajSignal=true;                                                                             
   }
