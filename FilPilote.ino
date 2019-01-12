@@ -28,7 +28,7 @@
  */
 
 // Enable debug prints to serial monitor
-#define MY_DEBUG
+//#define MY_DEBUG
 #define MY_SPLASH_SCREEN_DISABLED
 
 // Enable and select radio type attached
@@ -37,7 +37,7 @@
 
 // Enable repeater functionality for this node
 //#define MY_REPEATER_FEATURE
-//#define MY_DISABLED_SERIAL
+#define MY_DISABLED_SERIAL
 
 #define MY_DEFAULT_LED_BLINK_PERIOD 100
 // Flash leds on rx/tx/err
@@ -49,7 +49,7 @@
 #define MY_NODE_ID 10
 
 #define MY_RF24_CHANNEL  125
-#define MY_RF24_PA_LEVEL RF24_PA_HIGH
+#define MY_RF24_PA_LEVEL RF24_PA_LOW
 
 #include <MySensors.h>
 #include <SPI.h>
@@ -63,18 +63,19 @@
 
 MyMessage gMsg;
 
-unsigned long gActualTime;
-unsigned long gLastRequest;
+volatile unsigned long gActualTime;
+volatile unsigned long gLastRequest;
 
 SERIAL_RELAIS_16 gRelais(7,8,6);
 U8GLIB_SSD1306_128X64 gAfficheur;
 unsigned char gEtape=0;
+unsigned char gOldEtape=0;
 unsigned long gTempo=0;
 unsigned long gOldTime=0;
-bool gResetSignal=false;
-bool gMajSignal=false;  
-bool gDateSignal=false; 
-bool gRelaiSignal=false; 
+volatile bool gResetSignal=false;
+volatile bool gMajSignal=false;  
+volatile bool gDateSignal=false; 
+volatile bool gRelaiSignal=false; 
 
 unsigned short int gOldErreur=999;
 unsigned short int gActualErreur;
@@ -189,7 +190,7 @@ void ResetStatistiques()
 void before()
 {
   char gMessageChr[20];
-  Serial.begin(115200);
+  //Serial.begin(115200);
   sprintf(gMessageChr,"\n\nBooting\0");
   AffichageEcran(&gAfficheur,gMessageChr,&gRelais);
   gRelais.SetAllRelai(INCONNU);
@@ -234,9 +235,14 @@ void loop()
   char temp[20]="\0";
 
   gActualTime=millis();
-  
-  ResetWatchdog(WATCHDOG_PIN,wait);
 
+  if (gEtape!=gOldEtape)
+  {
+      /*on ream le watchdog*/
+      ResetWatchdog(WATCHDOG_PIN,wait);
+  }
+  gOldEtape=gEtape;
+  
   Serial.println(gEtape);
   switch(gEtape)
   {
@@ -273,8 +279,11 @@ void loop()
     case 30:
       sprintf(gMessageChr,"\nMise a\njour\nrelais");
       AffichageEcran(&gAfficheur,gMessageChr,&gRelais);
-      gLastRequest=gActualTime;
-      request(CHILD_ID_RELAIS           , V_VAR5);
+      if (gActualTime-gLastRequest>500)
+      {
+        gLastRequest=gActualTime;
+        request(CHILD_ID_RELAIS           , V_VAR5);
+      }
       if (gRelaiSignal) {gRelaiSignal=false;gEtape=40;}
       else {gEtape=30;}
       break;            
